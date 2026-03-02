@@ -69,7 +69,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonAddGame.Location = new System.Drawing.Point(3, 3);
             this.buttonAddGame.Name = "buttonAddGame";
-            this.buttonAddGame.Size = new System.Drawing.Size(119, 29);
+            this.buttonAddGame.Size = new System.Drawing.Size(122, 29);
             this.buttonAddGame.TabIndex = 3;
             this.buttonAddGame.Text = "Add";
             this.buttonAddGame.UseVisualStyleBackColor = true;
@@ -94,7 +94,7 @@
             this.tableLayoutPanelRoot.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanelRoot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanelRoot.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanelRoot.Size = new System.Drawing.Size(858, 474);
+            this.tableLayoutPanelRoot.Size = new System.Drawing.Size(858, 468);
             this.tableLayoutPanelRoot.TabIndex = 0;
             // 
             // tableLayoutPanelGameManager
@@ -276,11 +276,12 @@
             this.tableLayoutPanelGameControl.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanelGameControl.Controls.Add(this.buttonAddGame, 0, 0);
             this.tableLayoutPanelGameControl.Controls.Add(this.buttonRemoveGame, 1, 0);
-            this.tableLayoutPanelGameControl.Location = new System.Drawing.Point(3, 436);
+            this.tableLayoutPanelGameControl.Location = new System.Drawing.Point(0, 433);
+            this.tableLayoutPanelGameControl.Margin = new System.Windows.Forms.Padding(0);
             this.tableLayoutPanelGameControl.Name = "tableLayoutPanelGameControl";
             this.tableLayoutPanelGameControl.RowCount = 1;
             this.tableLayoutPanelGameControl.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanelGameControl.Size = new System.Drawing.Size(251, 35);
+            this.tableLayoutPanelGameControl.Size = new System.Drawing.Size(257, 35);
             this.tableLayoutPanelGameControl.TabIndex = 4;
             // 
             // buttonRemoveGame
@@ -289,9 +290,9 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonRemoveGame.Enabled = false;
-            this.buttonRemoveGame.Location = new System.Drawing.Point(128, 3);
+            this.buttonRemoveGame.Location = new System.Drawing.Point(131, 3);
             this.buttonRemoveGame.Name = "buttonRemoveGame";
-            this.buttonRemoveGame.Size = new System.Drawing.Size(120, 29);
+            this.buttonRemoveGame.Size = new System.Drawing.Size(123, 29);
             this.buttonRemoveGame.TabIndex = 4;
             this.buttonRemoveGame.Text = "Remove";
             this.buttonRemoveGame.UseVisualStyleBackColor = true;
@@ -302,10 +303,9 @@
             this.buttonBackUp.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonBackUp.Location = new System.Drawing.Point(263, 439);
-            this.buttonBackUp.Margin = new System.Windows.Forms.Padding(6);
+            this.buttonBackUp.Location = new System.Drawing.Point(260, 436);
             this.buttonBackUp.Name = "buttonBackUp";
-            this.buttonBackUp.Size = new System.Drawing.Size(589, 29);
+            this.buttonBackUp.Size = new System.Drawing.Size(595, 29);
             this.buttonBackUp.TabIndex = 17;
             this.buttonBackUp.Text = "Back up";
             this.buttonBackUp.UseVisualStyleBackColor = true;
@@ -316,7 +316,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(882, 498);
+            this.ClientSize = new System.Drawing.Size(882, 492);
             this.Controls.Add(this.tableLayoutPanelRoot);
             this.Name = "Form";
             this.ShowIcon = false;
