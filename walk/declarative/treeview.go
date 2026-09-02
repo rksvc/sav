@@ -53,6 +53,7 @@ type TreeView struct {
 	ItemHeight           int
 	Model                walk.TreeModel
 	OnCurrentItemChanged walk.EventHandler
+	OnCheckedChanged     walk.TreeItemEventHandler
 	OnExpandedChanged    walk.TreeItemEventHandler
 	OnItemActivated      walk.EventHandler
 }
@@ -78,6 +79,10 @@ func (tv TreeView) Create(builder *Builder) error {
 
 		if tv.OnCurrentItemChanged != nil {
 			w.CurrentItemChanged().Attach(tv.OnCurrentItemChanged)
+		}
+
+		if tv.OnCheckedChanged != nil {
+			w.CheckedChanged().Attach(tv.OnCheckedChanged)
 		}
 
 		if tv.OnExpandedChanged != nil {

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build windows
+//go:build windows
 
 package walk
 
@@ -11,6 +11,10 @@ import (
 	"unsafe"
 
 	"github.com/lxn/win"
+)
+
+const (
+	tvmCheckStateChanged = win.WM_USER + 100
 )
 
 type treeViewItemInfo struct {
@@ -34,6 +38,7 @@ type TreeView struct {
 	imageUintptr2Index             map[uintptr]int32
 	filePath2IconIndex             map[string]int32
 	expandedChangedPublisher       TreeItemEventPublisher
+	checkedChangedPublisher        TreeItemEventPublisher
 	currentItemChangedPublisher    EventPublisher
 	itemActivatedPublisher         EventPublisher
 }
@@ -45,7 +50,7 @@ func NewTreeView(parent Container) (*TreeView, error) {
 		tv,
 		parent,
 		"SysTreeView32",
-		win.WS_TABSTOP|win.WS_VISIBLE|win.TVS_HASBUTTONS|win.TVS_LINESATROOT|win.TVS_SHOWSELALWAYS|win.TVS_TRACKSELECT,
+		win.WS_TABSTOP|win.WS_VISIBLE|win.TVS_HASBUTTONS|win.TVS_LINESATROOT|win.TVS_SHOWSELALWAYS|win.TVS_TRACKSELECT|win.TVS_CHECKBOXES,
 		win.WS_EX_CLIENTEDGE); err != nil {
 		return nil, err
 	}
@@ -273,6 +278,48 @@ func (tv *TreeView) ItemHeight() int {
 // SetItemHeight sets the height of the tree-view items in native pixels.
 func (tv *TreeView) SetItemHeight(height int) {
 	tv.SendMessage(win.TVM_SETITEMHEIGHT, uintptr(height), 0)
+}
+
+func (tv *TreeView) Checked(item TreeItem) bool {
+	handle, err := tv.handleForItem(item)
+	if err != nil {
+		return false
+	}
+
+	state := tv.SendMessage(win.TVM_GETITEMSTATE, uintptr(handle), win.TVIS_STATEIMAGEMASK)
+
+	return state&0x2000 != 0
+}
+
+func (tv *TreeView) SetChecked(item TreeItem, checked bool) error {
+	info := tv.item2Info[item]
+	if info == nil {
+		return newError("invalid item")
+	}
+
+	var state uint32
+	if checked {
+		state = 0x2000
+	} else {
+		state = 0x1000
+	}
+
+	tvi := &win.TVITEM{
+		Mask:      win.TVIF_STATE,
+		HItem:     info.handle,
+		StateMask: win.TVIS_STATEIMAGEMASK,
+		State:     state,
+	}
+
+	if tv.SendMessage(win.TVM_SETITEM, 0, uintptr(unsafe.Pointer(tvi))) == 0 {
+		return newError("SendMessage(TVM_SETITEM) failed")
+	}
+
+	return nil
+}
+
+func (tv *TreeView) CheckedChanged() *TreeItemEvent {
+	return tv.checkedChangedPublisher.Event()
 }
 
 func (tv *TreeView) resetItems() error {
@@ -558,6 +605,12 @@ func (tv *TreeView) ItemActivated() *Event {
 
 func (tv *TreeView) WndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	switch msg {
+	case tvmCheckStateChanged:
+		if item := tv.handle2Item[win.HTREEITEM(wParam)]; item != nil {
+			tv.checkedChangedPublisher.Publish(item)
+		}
+		return 0
+
 	case win.WM_GETDLGCODE:
 		if wParam == win.VK_RETURN {
 			return win.DLGC_WANTALLKEYS
@@ -627,6 +680,25 @@ func (tv *TreeView) WndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) u
 			nmtvkd := (*win.NMTVKEYDOWN)(unsafe.Pointer(lParam))
 			if nmtvkd.WVKey == uint16(KeyReturn) {
 				tv.itemActivatedPublisher.Publish()
+			} else if nmtvkd.WVKey == win.VK_SPACE {
+				item := tv.CurrentItem()
+				if item != nil {
+					win.PostMessage(tv.hWnd, tvmCheckStateChanged, uintptr(tv.item2Info[item].handle), 0)
+				}
+			}
+
+		case win.NM_CLICK:
+			var pt win.POINT
+			win.GetCursorPos(&pt)
+			win.ScreenToClient(tv.hWnd, &pt)
+
+			var tvht win.TVHITTESTINFO
+			tvht.Pt = pt
+			tv.SendMessage(win.TVM_HITTEST, 0, uintptr(unsafe.Pointer(&tvht)))
+			if tvht.Flags&win.TVHT_ONITEMSTATEICON != 0 {
+				if item := tv.handle2Item[tvht.HItem]; item != nil {
+					win.PostMessage(tv.hWnd, tvmCheckStateChanged, uintptr(tvht.HItem), 0)
+				}
 			}
 
 		case win.TVN_SELCHANGED:
