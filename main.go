@@ -15,7 +15,7 @@ func main() {
 	window := MainWindow{
 		Title:    "Game Save Manager",
 		AssignTo: &m.mw,
-		Layout:   VBox{},
+		Layout:   VBox{Spacing: 3},
 		Children: []Widget{
 			Label{Text: "Games"},
 			Composite{
@@ -57,10 +57,10 @@ func main() {
 									LineEdit{AssignTo: &m.name},
 									PushButton{Text: "Save", OnClicked: m.buttonSaveNameClick},
 									Label{Text: "Save Root:"},
-									LineEdit{Name: "save", AssignTo: &m.save, Enabled: false, OnTextChanged: m.textSaveRootChanged},
+									LineEdit{Name: "save", AssignTo: &m.save, ReadOnly: true, OnTextChanged: m.textSaveRootChanged},
 									PushButton{Text: "Choose", OnClicked: m.buttonChooseSaveClick},
 									Label{Text: "Backup Path:"},
-									LineEdit{Name: "backup", AssignTo: &m.backup, Enabled: false},
+									LineEdit{Name: "backup", AssignTo: &m.backup, ReadOnly: true},
 									PushButton{Text: "Choose", OnClicked: m.buttonChooseBackupClick},
 								},
 							},
