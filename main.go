@@ -76,7 +76,9 @@ func main() {
 			},
 		},
 	}
-	window.Create()
+	if err := window.Create(); err != nil {
+		m.fatal(err)
+	}
 
 	var mi win.MONITORINFO
 	mi.CbSize = uint32(unsafe.Sizeof(mi))
