@@ -364,7 +364,11 @@ func (m *model) buttonBackUpClick() {
 
 func (m *model) browseFolder() string {
 	var dlg walk.FileDialog
-	accept, err := dlg.ShowBrowseFolder(nil)
+	var owner walk.Form
+	if m.mw != nil {
+		owner = m.mw
+	}
+	accept, err := dlg.ShowBrowseFolder(owner)
 	if err != nil {
 		m.warn(err)
 		return ""
