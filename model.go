@@ -34,16 +34,16 @@ type model struct {
 	name, save, backup *walk.LineEdit
 }
 
-func newModel() *model {
+func newModel() (*model, error) {
 	m := model{list: &listModel{}}
 
 	config, err := os.UserConfigDir()
 	if err != nil {
-		m.fatal(err)
+		return nil, err
 	}
 	config = filepath.Join(config, "sav")
 	if err := os.MkdirAll(config, 0755); err != nil {
-		m.fatal(err)
+		return nil, err
 	}
 	m.config = filepath.Join(config, "config.json")
 
@@ -52,13 +52,13 @@ func newModel() *model {
 		err = json.NewDecoder(f).Decode(&m.list.games)
 		f.Close()
 		if err != nil {
-			m.fatal(err)
+			return nil, err
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		m.fatal(err)
+		return nil, err
 	}
 
-	return &m
+	return &m, nil
 }
 
 func (m *model) saveConfig(games []game) error {
@@ -289,13 +289,13 @@ var r = strings.NewReplacer(
 func (m *model) buttonBackUpClick() {
 	game := m.list.games[m.lb.CurrentIndex()]
 	if len(game.Paths) == 0 {
-		m.msg("No file selected.")
+		m.info("No file selected.")
 		return
 	}
 
 	f, err := os.CreateTemp("", "")
 	if err != nil {
-		m.warn(err)
+		m.error(err)
 		return
 	}
 
@@ -345,7 +345,7 @@ func (m *model) buttonBackUpClick() {
 	m.try(w.Close())
 	m.try(f.Close())
 	if err != nil {
-		m.warn(err)
+		m.error(err)
 		os.Remove(f.Name())
 		return
 	}
@@ -356,9 +356,9 @@ func (m *model) buttonBackUpClick() {
 		os.Remove(f.Name())
 	}
 	if err == nil {
-		m.msg("Done!")
+		m.info("Done!")
 	} else {
-		m.warn(err)
+		m.error(err)
 	}
 }
 
@@ -370,7 +370,7 @@ func (m *model) browseFolder() string {
 	}
 	accept, err := dlg.ShowBrowseFolder(owner)
 	if err != nil {
-		m.warn(err)
+		m.error(err)
 		return ""
 	} else if accept {
 		return dlg.FilePath
@@ -378,7 +378,7 @@ func (m *model) browseFolder() string {
 	return ""
 }
 
-func (m *model) msg(msg string) {
+func (m *model) info(msg string) {
 	var owner walk.Form
 	if m.mw != nil {
 		owner = m.mw
@@ -386,7 +386,7 @@ func (m *model) msg(msg string) {
 	walk.MsgBox(owner, "", msg, walk.MsgBoxIconInformation)
 }
 
-func (m *model) warn(err error) {
+func (m *model) error(err error) {
 	var owner walk.Form
 	if m.mw != nil {
 		owner = m.mw
@@ -394,15 +394,10 @@ func (m *model) warn(err error) {
 	walk.MsgBox(owner, "", err.Error(), walk.MsgBoxIconError)
 }
 
-func (m *model) fatal(err error) {
-	m.warn(err)
-	os.Exit(1)
-}
-
 func (m *model) try(err error) bool {
 	if err == nil {
 		return true
 	}
-	m.warn(err)
+	m.error(err)
 	return false
 }

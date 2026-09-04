@@ -3,6 +3,7 @@
 package main
 
 import (
+	"os"
 	"sav/walk"
 	. "sav/walk/declarative"
 	"unsafe"
@@ -11,7 +12,12 @@ import (
 )
 
 func main() {
-	m := newModel()
+	m, err := newModel()
+	if err != nil {
+		m.error(err)
+		os.Exit(1)
+	}
+
 	window := MainWindow{
 		Title:    "Game Save Manager",
 		AssignTo: &m.mw,
@@ -77,7 +83,8 @@ func main() {
 		},
 	}
 	if err := window.Create(); err != nil {
-		m.fatal(err)
+		m.error(err)
+		os.Exit(1)
 	}
 
 	var mi win.MONITORINFO
