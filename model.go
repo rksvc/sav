@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sav/walk"
 	"slices"
@@ -142,6 +143,24 @@ func (m *model) buttonChooseBackupClick() {
 		} else {
 			m.list.games[index].BackupPath = oldBackupPath
 		}
+	}
+}
+
+func (m *model) buttonOpenSaveRootClick() {
+	exec.Command("explorer.exe", m.save.Text()).Run()
+}
+
+func (m *model) buttonOpenBackupClick() {
+	backupPath := m.backup.Text()
+	name := m.list.games[m.lb.CurrentIndex()].Name
+	backup := filepath.Join(backupPath, r.Replace(name)+".zip")
+	_, err := os.Stat(backup)
+	if err == nil {
+		exec.Command("explorer.exe", "/select,", backup).Run()
+	} else if errors.Is(err, os.ErrNotExist) {
+		exec.Command("explorer.exe", backupPath).Run()
+	} else {
+		m.error(err)
 	}
 }
 

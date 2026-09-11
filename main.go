@@ -57,17 +57,19 @@ func main() {
 						Enabled:       Bind("lb.CurrentIndex != -1"),
 						Children: []Widget{
 							Composite{
-								Layout: Grid{Columns: 3, Spacing: 3, Margins: Margins{Left: 3, Right: 3}},
+								Layout: Grid{Columns: 4, Spacing: 3, Margins: Margins{Left: 3, Right: 3}},
 								Children: []Widget{
 									Label{Text: "Name:"},
 									LineEdit{AssignTo: &m.name},
-									PushButton{Text: "Save", OnClicked: m.buttonSaveNameClick},
+									PushButton{Text: "Save", ColumnSpan: 2, OnClicked: m.buttonSaveNameClick},
 									Label{Text: "Save Root:"},
 									LineEdit{Name: "save", AssignTo: &m.save, ReadOnly: true, OnTextChanged: m.textSaveRootChanged},
 									PushButton{Text: "Choose", OnClicked: m.buttonChooseSaveClick},
+									PushButton{Text: "Open", Enabled: Bind(`save.Text != ""`), OnClicked: m.buttonOpenSaveRootClick},
 									Label{Text: "Backup Path:"},
 									LineEdit{Name: "backup", AssignTo: &m.backup, ReadOnly: true},
 									PushButton{Text: "Choose", OnClicked: m.buttonChooseBackupClick},
+									PushButton{Text: "Open", Enabled: Bind(`backup.Text != ""`), OnClicked: m.buttonOpenBackupClick},
 								},
 							},
 							TreeView{AssignTo: &m.tv, OnCheckedChanged: m.treeCheckedChanged},
