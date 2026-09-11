@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 func copyContent(src, dst string) error {
@@ -29,6 +31,33 @@ func walkNodes(root *treeItem, f func(*treeItem) bool) bool {
 	return !slices.ContainsFunc(root.children, func(i *treeItem) bool {
 		return !f(i) || !walkNodes(i, f)
 	})
+}
+
+func compareFold(a, b string) int {
+	for {
+		ra, sa := utf8.DecodeRuneInString(a)
+		rb, sb := utf8.DecodeRuneInString(b)
+		if sa == 0 {
+			if sb == 0 {
+				return 0
+			}
+			return -1
+		} else if sb == 0 {
+			return 1
+		}
+
+		ra = unicode.ToLower(ra)
+		rb = unicode.ToLower(rb)
+		if ra != rb {
+			if ra > rb {
+				return 1
+			}
+			return -1
+		}
+
+		a = a[sa:]
+		b = b[sb:]
+	}
 }
 
 func cutPathPrefix(path, prefix string) string {

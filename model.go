@@ -184,6 +184,20 @@ func (m *model) textSaveRootChanged() {
 	})) {
 		return
 	}
+	walkNodes(root, func(i *treeItem) bool {
+		slices.SortFunc(i.children, func(a, b *treeItem) int {
+			if len(a.children) > 0 {
+				if len(b.children) > 0 {
+					return compareFold(a.name, b.name)
+				}
+				return -1
+			} else if len(b.children) > 0 {
+				return 1
+			}
+			return compareFold(a.name, b.name)
+		})
+		return true
+	})
 	m.tree = &treeModel{root: root}
 	if !m.try(m.tv.SetModel(m.tree)) {
 		return
