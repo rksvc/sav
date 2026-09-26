@@ -226,9 +226,7 @@ func (m *model) textSaveRootChanged() {
 		return
 	}
 	if slices.Contains(game.Paths, "*") {
-		if !m.try(m.tv.SetChecked(root, true)) || !walkNodes(root, func(i *treeItem) bool {
-			return m.try(m.tv.SetChecked(i, true))
-		}) {
+		if !walkNodes(root, func(i *treeItem) bool { return m.try(m.tv.SetChecked(i, true)) }) {
 			return
 		}
 	} else {
@@ -247,9 +245,7 @@ func (m *model) textSaveRootChanged() {
 				cur = cur.children[index]
 			}
 			if cur != nil {
-				if !m.try(m.tv.SetChecked(cur, true)) || !walkNodes(cur, func(i *treeItem) bool {
-					return m.try(m.tv.SetChecked(i, true))
-				}) {
+				if !walkNodes(cur, func(i *treeItem) bool { return m.try(m.tv.SetChecked(i, true)) }) {
 					return
 				}
 			}

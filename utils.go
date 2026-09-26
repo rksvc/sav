@@ -28,9 +28,7 @@ func copyContent(src, dst string) error {
 }
 
 func walkNodes(root *treeItem, f func(*treeItem) bool) bool {
-	return !slices.ContainsFunc(root.children, func(i *treeItem) bool {
-		return !f(i) || !walkNodes(i, f)
-	})
+	return f(root) && !slices.ContainsFunc(root.children, func(i *treeItem) bool { return !walkNodes(i, f) })
 }
 
 func compareFold(a, b string) int {
