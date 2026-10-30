@@ -133,41 +133,46 @@ func (a *app) rebuildTree() {
 		a.root = nil
 		return
 	}
+
 	a.root = &treeItem{name: filepath.Base(game.SaveRoot)}
-	if err := filepath.WalkDir(game.SaveRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		} else if path == game.SaveRoot {
-			return nil
-		}
-		path = cutPathPrefix(path, game.SaveRoot)
-		cur := a.root
-		for part := range strings.SplitSeq(path, string(filepath.Separator)) {
-			index := slices.IndexFunc(cur.children, func(i *treeItem) bool {
-				return i.name == part
-			})
-			if index == -1 {
-				i := &treeItem{name: part, parent: cur}
-				cur.children = append(cur.children, i)
-				cur = i
-			} else {
-				cur = cur.children[index]
+	var walk func(*treeItem, string, fs.DirEntry) error
+	walk = func(item *treeItem, path string, e fs.DirEntry) error {
+		if e.IsDir() {
+			dirs, err := os.ReadDir(path)
+			if err != nil {
+				return err
+			}
+			for _, dir := range dirs {
+				i := &treeItem{name: dir.Name(), parent: item}
+				item.children = append(item.children, i)
+				if err = walk(i, filepath.Join(path, dir.Name()), dir); err != nil {
+					return err
+				}
+			}
+			if item.children == nil {
+				item.children = make([]*treeItem, 0)
 			}
 		}
 		return nil
-	}); err != nil {
+	}
+	info, err := os.Lstat(game.SaveRoot)
+	if err != nil {
+		mygo.Dialog.Error("", err.Error())
+		return
+	}
+	if err = walk(a.root, game.SaveRoot, fs.FileInfoToDirEntry(info)); err != nil {
 		mygo.Dialog.Error("", err.Error())
 		return
 	}
 
 	walkNodes(a.root, func(i *treeItem) {
 		slices.SortFunc(i.children, func(a, b *treeItem) int {
-			if len(a.children) > 0 {
-				if len(b.children) > 0 {
+			if a.children != nil {
+				if b.children != nil {
 					return compareFold(a.name, b.name)
 				}
 				return -1
-			} else if len(b.children) > 0 {
+			} else if b.children != nil {
 				return 1
 			}
 			return compareFold(a.name, b.name)
@@ -422,7 +427,7 @@ func (a *app) view(c *ui.Context) {
 func (a *app) tree(c *ui.Context, item *treeItem, depth float32) {
 	ui.Row(c).Gap(4).PaddingStart((14 + 4) * depth).Children(func() {
 		marginStart := float32(14 + 4)
-		if len(item.children) > 0 {
+		if item.children != nil {
 			marginStart = 0
 			if ui.ButtonBase(c).Children(func() {
 				if item.expanded {
