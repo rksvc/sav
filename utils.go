@@ -1,12 +1,9 @@
-//go:build windows
-
 package main
 
 import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -27,8 +24,11 @@ func copyContent(src, dst string) error {
 	return err
 }
 
-func walkNodes(root *treeItem, f func(*treeItem) bool) bool {
-	return f(root) && !slices.ContainsFunc(root.children, func(i *treeItem) bool { return !walkNodes(i, f) })
+func walkNodes(root *treeItem, f func(*treeItem)) {
+	f(root)
+	for _, child := range root.children {
+		walkNodes(child, f)
+	}
 }
 
 func compareFold(a, b string) int {
