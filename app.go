@@ -221,7 +221,9 @@ func (a *app) backUp() {
 
 	w := zip.NewWriter(f)
 	addFile := func(path string) error {
-		dst, err := w.Create(strings.ReplaceAll(cutPathPrefix(path, game.SaveRoot), "\\", "/"))
+		file, _ := strings.CutPrefix(path, game.SaveRoot)
+		file = strings.TrimLeft(file, string(filepath.Separator))
+		dst, err := w.Create(strings.ReplaceAll(file, "\\", "/"))
 		if err != nil {
 			return err
 		}

@@ -3,8 +3,6 @@ package main
 import (
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -56,9 +54,4 @@ func compareFold(a, b string) int {
 		a = a[sa:]
 		b = b[sb:]
 	}
-}
-
-func cutPathPrefix(path, prefix string) string {
-	path, _ = strings.CutPrefix(path, prefix)
-	return strings.TrimLeft(path, string(filepath.Separator))
 }
