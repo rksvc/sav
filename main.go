@@ -12,8 +12,10 @@ func main() {
 	}
 	mygo.App.WhenReady(func() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{
-			Title:   "Game Save Manager",
-			Content: ui.View(a.view),
+			Title:     "Game Save Manager",
+			MinWidth:  800,
+			MinHeight: 600,
+			Content:   ui.View(a.view),
 		})
 	})
 	if err := mygo.App.Run(); err != nil {
