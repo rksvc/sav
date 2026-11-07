@@ -17,15 +17,11 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-//go:embed icons/chevron-down.svg
-var chevronDownSVG []byte
-
 //go:embed icons/chevron-right.svg
-var chevronRightSVG []byte
+var chevronSVG []byte
 
 var (
-	chevronDown  = ui.MustParseSVG(chevronDownSVG)
-	chevronRight = ui.MustParseSVG(chevronRightSVG)
+	chevron = ui.MustParseSVG(chevronSVG)
 )
 
 var r = strings.NewReplacer(
@@ -49,7 +45,7 @@ type game struct {
 
 type treeItem struct {
 	name     string
-	expanded bool
+	open     bool
 	checked  bool
 	parent   *treeItem
 	children []*treeItem
@@ -179,7 +175,7 @@ func (a *app) rebuildTree() {
 		})
 	})
 
-	a.root.expanded = true
+	a.root.open = true
 	if slices.Contains(game.Paths, "*") {
 		walkNodes(a.root, func(i *treeItem) { i.checked = true })
 	} else {
@@ -193,7 +189,7 @@ func (a *app) rebuildTree() {
 					cur = nil
 					break
 				}
-				cur.expanded = true
+				cur.open = true
 				cur = cur.children[index]
 			}
 			if cur != nil {
@@ -411,12 +407,82 @@ func (a *app) view(c *ui.Context) {
 						})
 					})
 				}).Gap(6)
+
 				ui.ScrollBoth(c).Padding(4).Border(1, t.Border).Radius(8).Grow(1).Children(func() {
-					if a.root != nil {
-						ui.Column(c).Children(func() {
-							a.tree(c, a.root, 0)
-						})
-					}
+					tree := ui.TreeBase(c)
+					tree.Root.Children(func() {
+						if a.root != nil {
+							var node func(*treeItem)
+							node = func(item *treeItem) {
+								var i ui.TreeItemParts
+								if item.children == nil {
+									i = tree.Item(nil)
+								} else {
+									i = tree.Item(&item.open)
+								}
+								ui.Row(c).Gap(4).PaddingStart((14 + 4) * float32(i.Depth())).Children(func() {
+									marginStart := float32(14 + 4)
+									if item.children != nil {
+										marginStart = 0
+										arrow := ui.Icon(c, chevron)
+										if item.open {
+											arrow.Rotate(90)
+										}
+										if arrow.Clicked() {
+											item.open = !item.open
+										}
+									}
+									if ui.Checkbox(c, &item.checked, "").PaddingX(1).MarginStart(marginStart).Changed() {
+										walkNodes(item, func(i *treeItem) { i.checked = item.checked })
+										if item.checked {
+											for cur := item.parent; cur != nil; cur = cur.parent {
+												if slices.ContainsFunc(cur.children, func(i *treeItem) bool { return !i.checked }) {
+													break
+												} else {
+													cur.checked = true
+												}
+											}
+										} else {
+											for cur := item.parent; cur != nil; cur = cur.parent {
+												cur.checked = false
+											}
+										}
+
+										if a.root.checked {
+											a.games[a.selected].Paths = []string{"*"}
+										} else {
+											a.games[a.selected].Paths = nil
+											var walk func(*treeItem)
+											walk = func(i *treeItem) {
+												if i.checked {
+													var paths []string
+													for i.parent != nil {
+														paths = append(paths, i.name)
+														i = i.parent
+													}
+													slices.Reverse(paths)
+													a.games[a.selected].Paths = append(a.games[a.selected].Paths, filepath.Join(paths...))
+													return
+												}
+												for _, i := range i.children {
+													walk(i)
+												}
+											}
+											walk(a.root)
+										}
+										a.save(a.games)
+									}
+									ui.Text(c, item.name).SingleLine()
+								})
+								i.Group(func() {
+									for _, i := range item.children {
+										node(i)
+									}
+								})
+							}
+							node(a.root)
+						}
+					})
 				})
 				if ui.Button(c, "Back up").Disabled(a.saveRoot == "" || a.backupPath == "").Clicked() {
 					a.backUp()
@@ -424,68 +490,4 @@ func (a *app) view(c *ui.Context) {
 			})
 		})
 	})
-}
-
-func (a *app) tree(c *ui.Context, item *treeItem, depth float32) {
-	ui.Row(c).Gap(4).PaddingStart((14 + 4) * depth).Children(func() {
-		marginStart := float32(14 + 4)
-		if item.children != nil {
-			marginStart = 0
-			if ui.ButtonBase(c).Children(func() {
-				if item.expanded {
-					ui.Icon(c, chevronDown)
-				} else {
-					ui.Icon(c, chevronRight)
-				}
-			}).Clicked() {
-				item.expanded = !item.expanded
-			}
-		}
-		if ui.Checkbox(c, &item.checked, "").PaddingX(1).MarginStart(marginStart).Changed() {
-			walkNodes(item, func(i *treeItem) { i.checked = item.checked })
-			if item.checked {
-				for cur := item.parent; cur != nil; cur = cur.parent {
-					if slices.ContainsFunc(cur.children, func(i *treeItem) bool { return !i.checked }) {
-						break
-					} else {
-						cur.checked = true
-					}
-				}
-			} else {
-				for cur := item.parent; cur != nil; cur = cur.parent {
-					cur.checked = false
-				}
-			}
-
-			if a.root.checked {
-				a.games[a.selected].Paths = []string{"*"}
-			} else {
-				a.games[a.selected].Paths = nil
-				var walk func(*treeItem)
-				walk = func(i *treeItem) {
-					if i.checked {
-						var paths []string
-						for i.parent != nil {
-							paths = append(paths, i.name)
-							i = i.parent
-						}
-						slices.Reverse(paths)
-						a.games[a.selected].Paths = append(a.games[a.selected].Paths, filepath.Join(paths...))
-						return
-					}
-					for _, i := range i.children {
-						walk(i)
-					}
-				}
-				walk(a.root)
-			}
-			a.save(a.games)
-		}
-		ui.Text(c, item.name).SingleLine()
-	})
-	if item.expanded {
-		for _, i := range item.children {
-			a.tree(c, i, depth+1)
-		}
-	}
 }
