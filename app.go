@@ -79,7 +79,6 @@ type app struct {
 	selected int
 	list     ui.ListState
 
-	name       string
 	saveRoot   string
 	backupPath string
 
@@ -130,13 +129,11 @@ func (a *app) save(games []game) bool {
 
 func (a *app) listSelectedIndexChanged() {
 	if a.selected == -1 {
-		a.name = ""
 		a.saveRoot = ""
 		a.backupPath = ""
 		a.root = nil
 	} else {
 		game := a.games[a.selected]
-		a.name = game.Name
 		a.saveRoot = game.SaveRoot
 		a.backupPath = game.BackupPath
 		a.rebuildTree()
