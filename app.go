@@ -72,8 +72,12 @@ type treeItem struct {
 }
 
 type app struct {
-	win    *mygo.Window
-	config string
+	win     *mygo.Window
+	config  string
+	err     bool
+	info    bool
+	asking  bool
+	message string
 
 	games    []game
 	selected int
@@ -115,13 +119,13 @@ func newApp() (*app, error) {
 func (a *app) save(games []game) bool {
 	f, err := os.Create(a.config)
 	if err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		return false
 	}
 	defer f.Close()
 	err = json.NewEncoder(f).Encode(games)
 	if err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		return false
 	}
 	return true
@@ -170,11 +174,11 @@ func (a *app) rebuildTree() {
 	}
 	info, err := os.Lstat(game.SaveRoot)
 	if err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		return
 	}
 	if err = walk(a.root, game.SaveRoot, fs.FileInfoToDirEntry(info)); err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		return
 	}
 
@@ -219,16 +223,13 @@ func (a *app) rebuildTree() {
 func (a *app) backUp() {
 	game := a.games[a.selected]
 	if len(game.Paths) == 0 {
-		mygo.Dialog.Message(mygo.MessageOptions{
-			Parent:  a.win,
-			Message: "No file selected.",
-		})
+		a.info, a.message = true, "No file selected."
 		return
 	}
 
 	f, err := os.CreateTemp("", "")
 	if err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		return
 	}
 
@@ -278,13 +279,13 @@ func (a *app) backUp() {
 		}
 	}
 	if err := w.Close(); err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 	}
 	if err := f.Close(); err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 	}
 	if err != nil {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 		os.Remove(f.Name())
 		return
 	}
@@ -295,12 +296,9 @@ func (a *app) backUp() {
 		os.Remove(f.Name())
 	}
 	if err == nil {
-		mygo.Dialog.Message(mygo.MessageOptions{
-			Parent:  a.win,
-			Message: "Done!",
-		})
+		a.info, a.message = true, "Done!"
 	} else {
-		mygo.Dialog.Error("", err.Error())
+		a.err, a.message = true, err.Error()
 	}
 }
 
@@ -333,38 +331,17 @@ func (a *app) view(c *ui.Context) {
 					}
 				}
 			})
-			var del bool
 			if ui.List(c, &a.list, len(a.games), func(i int) {
 				ui.Row(c).Padding(4, 6).Justify(ui.SpaceBetween).Children(func() {
 					if ui.EditableText(c, &a.games[i].Name).Changed() {
 						a.save(a.games)
 					}
 					if i == a.selected && ui.Icon(c, trash).MarginStart(6).Clicked() {
-						del = true
+						a.asking = true
 					}
 				})
 			}).Gap(2).Grow(1).Changed() {
 				a.listSelectedIndexChanged()
-			}
-			if del {
-				game := a.games[a.selected]
-				res, err := mygo.Dialog.Message(mygo.MessageOptions{
-					Parent:  a.win,
-					Type:    mygo.MessageWarning,
-					Message: "Delete " + game.Name + "?",
-					Buttons: []string{"Delete", "Cancel"},
-				})
-				if err != nil {
-					mygo.Dialog.Error("", err.Error())
-				} else if res.Button == 0 {
-					a.games = slices.Delete(a.games, a.selected, a.selected+1)
-					if a.save(a.games) {
-						a.selected = -1
-						a.listSelectedIndexChanged()
-					} else {
-						a.games = slices.Insert(a.games, a.selected, game)
-					}
-				}
 			}
 		})
 
@@ -379,7 +356,7 @@ func (a *app) view(c *ui.Context) {
 						Directory: true,
 					})
 					if err != nil {
-						mygo.Dialog.Error("", err.Error())
+						a.err, a.message = true, err.Error()
 					} else if len(paths) > 0 {
 						a.games[a.selected].SaveRoot = paths[0]
 						if a.save(a.games) {
@@ -402,7 +379,7 @@ func (a *app) view(c *ui.Context) {
 						Directory: true,
 					})
 					if err != nil {
-						mygo.Dialog.Error("", err.Error())
+						a.err, a.message = true, err.Error()
 					} else if len(paths) > 0 {
 						a.games[a.selected].BackupPath = paths[0]
 						if a.save(a.games) {
@@ -421,7 +398,7 @@ func (a *app) view(c *ui.Context) {
 					} else if errors.Is(err, os.ErrNotExist) {
 						exec.Command("explorer.exe", a.backupPath).Run()
 					} else {
-						mygo.Dialog.Error("", err.Error())
+						a.err, a.message = true, err.Error()
 					}
 				}
 			})
@@ -508,6 +485,22 @@ func (a *app) view(c *ui.Context) {
 			}
 		})
 	})
+
+	ui.AlertDialog(c, &a.err, "Error", a.message, "OK")
+	ui.AlertDialog(c, &a.info, "Info", a.message, "OK")
+	var game game
+	if a.selected != -1 {
+		game = a.games[a.selected]
+	}
+	if ui.AlertDialog(c, &a.asking, "Delete "+game.Name+"?", "You can't undo this.", "Cancel", "Delete") == 1 {
+		a.games = slices.Delete(a.games, a.selected, a.selected+1)
+		if a.save(a.games) {
+			a.selected = -1
+			a.listSelectedIndexChanged()
+		} else {
+			a.games = slices.Insert(a.games, a.selected, game)
+		}
+	}
 }
 
 func filePicker(c *ui.Context, value *string) (ui.Element, ui.Element) {
