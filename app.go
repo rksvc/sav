@@ -17,11 +17,31 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+//go:embed icons/circle-question-mark.svg
+var questionSVG []byte
+
+//go:embed icons/circle-plus.svg
+var plusSVG []byte
+
+//go:embed icons/trash.svg
+var trashSVG []byte
+
+//go:embed icons/folder-open.svg
+var folderSVG []byte
+
+//go:embed icons/square-arrow-out-up-right.svg
+var externalSVG []byte
+
 //go:embed icons/chevron-right.svg
 var chevronSVG []byte
 
 var (
-	chevron = ui.MustParseSVG(chevronSVG)
+	question = ui.MustParseSVG(questionSVG)
+	plus     = ui.MustParseSVG(plusSVG)
+	trash    = ui.MustParseSVG(trashSVG)
+	folder   = ui.MustParseSVG(folderSVG)
+	external = ui.MustParseSVG(externalSVG)
+	chevron  = ui.MustParseSVG(chevronSVG)
 )
 
 var r = strings.NewReplacer(
@@ -288,206 +308,231 @@ func (a *app) backUp() {
 }
 
 func (a *app) view(c *ui.Context) {
-	a.list.Label = func(i int) string { return a.games[i].Name }
 	a.list.Selected = &a.selected
 
 	t := c.Theme()
-	t.Spacing = 3
+	var gray ui.Color
+	if t.Dark {
+		gray = ui.RGB(33, 37, 41)
+	} else {
+		gray = ui.RGB(241, 243, 245)
+	}
 
-	ui.Column(c).Fill().Padding(8).Gap(4).Children(func() {
-		ui.Text(c, "Games")
-		ui.Row(c).Grow(1).Gap(6).Children(func() {
-			ui.Column(c).Grow(0.3).AlignSelf(ui.Stretch).Gap(6).Children(func() {
-				if ui.List(c, &a.list, len(a.games), func(i int) {
-					ui.Text(c, a.games[i].Name).Padding(4, 6)
-				}).Padding(3).Border(1, t.Border).Radius(8).Gap(3).Grow(1).Changed() {
-					a.listSelectedIndexChanged()
+	ui.Row(c).Fill().Children(func() {
+		ui.Column(c).Padding(8).Grow(0.3).BorderEndWidth(1).BorderColor(t.Border).AlignSelf(ui.Stretch).Background(gray).Children(func() {
+			ui.Row(c).Justify(ui.SpaceBetween).Margin(0, 0, 6, 0).Children(func() {
+				ui.Row(c).Gap(4).Children(func() {
+					ui.Text(c, "Games").Bold().MarginStart(6)
+					ui.Icon(c, question).Size(t.FontSize-2, t.FontSize-2).Tooltip("Double-click the name to rename it")
+				})
+				if ui.Button(c, "").Children(func() {
+					ui.Icon(c, plus)
+				}).Clicked() {
+					games := append(a.games, game{Name: "New Game"})
+					if a.save(games) {
+						a.games = games
+						a.selected = len(a.games) - 1
+						a.listSelectedIndexChanged()
+					}
 				}
-				ui.Row(c).Gap(6).Children(func() {
-					if ui.Button(c, "Add").Grow(0.5).Clicked() {
-						games := append(a.games, game{Name: "New Game"})
-						if a.save(games) {
-							a.games = games
-							a.selected = len(a.games) - 1
-							a.listSelectedIndexChanged()
+			})
+			var del bool
+			if ui.List(c, &a.list, len(a.games), func(i int) {
+				ui.Row(c).Padding(4, 6).Justify(ui.SpaceBetween).Children(func() {
+					if ui.EditableText(c, &a.games[i].Name).Changed() {
+						a.save(a.games)
+					}
+					if i == a.selected && ui.Icon(c, trash).MarginStart(6).Clicked() {
+						del = true
+					}
+				})
+			}).Gap(2).Grow(1).Changed() {
+				a.listSelectedIndexChanged()
+			}
+			if del {
+				game := a.games[a.selected]
+				res, err := mygo.Dialog.Message(mygo.MessageOptions{
+					Parent:  a.win,
+					Type:    mygo.MessageWarning,
+					Message: "Delete " + game.Name + "?",
+					Buttons: []string{"Delete", "Cancel"},
+				})
+				if err != nil {
+					mygo.Dialog.Error("", err.Error())
+				} else if res.Button == 0 {
+					a.games = slices.Delete(a.games, a.selected, a.selected+1)
+					if a.save(a.games) {
+						a.selected = -1
+						a.listSelectedIndexChanged()
+					} else {
+						a.games = slices.Insert(a.games, a.selected, game)
+					}
+				}
+			}
+		})
+
+		ui.Column(c).Grow(0.7).AlignSelf(ui.Stretch).Margin(10, 8).Gap(8).Disabled(a.selected == -1).FontSize(14).Children(func() {
+			t.Spacing = 2.5
+			ui.Row(c).Children(func() {
+				ui.Text(c, "Save").MarginEnd(6)
+				pick, open := filePicker(c, &a.saveRoot)
+				if pick.Clicked() {
+					paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+						Parent:    a.win,
+						Directory: true,
+					})
+					if err != nil {
+						mygo.Dialog.Error("", err.Error())
+					} else if len(paths) > 0 {
+						a.games[a.selected].SaveRoot = paths[0]
+						if a.save(a.games) {
+							a.saveRoot = paths[0]
+							a.rebuildTree()
+						} else {
+							a.games[a.selected].SaveRoot = a.saveRoot
 						}
 					}
-					if ui.Button(c, "Delete").Grow(0.5).Disabled(a.selected == -1).Clicked() {
-						game := a.games[a.selected]
-						res, err := mygo.Dialog.Message(mygo.MessageOptions{
-							Parent:  a.win,
-							Type:    mygo.MessageWarning,
-							Message: "Delete " + game.Name + "?",
-							Buttons: []string{"Delete", "Cancel"},
-						})
-						if err != nil {
-							mygo.Dialog.Error("", err.Error())
-						} else if res.Button == 0 {
-							a.games = slices.Delete(a.games, a.selected, a.selected+1)
-							if a.save(a.games) {
-								a.selected = -1
-								a.listSelectedIndexChanged()
+				}
+				if open.Clicked() {
+					exec.Command("explorer.exe", a.saveRoot).Run()
+				}
+
+				ui.Text(c, "to").MarginX(6)
+				pick, open = filePicker(c, &a.backupPath)
+				if pick.Clicked() {
+					paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+						Parent:    a.win,
+						Directory: true,
+					})
+					if err != nil {
+						mygo.Dialog.Error("", err.Error())
+					} else if len(paths) > 0 {
+						a.games[a.selected].BackupPath = paths[0]
+						if a.save(a.games) {
+							a.backupPath = paths[0]
+						} else {
+							a.games[a.selected].BackupPath = a.backupPath
+						}
+					}
+				}
+				if open.Clicked() {
+					name := a.games[a.selected].Name
+					backup := filepath.Join(a.backupPath, r.Replace(name)+".zip")
+					_, err := os.Stat(backup)
+					if err == nil {
+						exec.Command("explorer.exe", "/select,", backup).Run()
+					} else if errors.Is(err, os.ErrNotExist) {
+						exec.Command("explorer.exe", a.backupPath).Run()
+					} else {
+						mygo.Dialog.Error("", err.Error())
+					}
+				}
+			})
+
+			t.Spacing = 3
+			ui.ScrollBoth(c).Background(gray.Alpha(0.5)).Padding(4).Border(1, t.Border).Radius(8).Grow(1).Children(func() {
+				tree := ui.TreeBase(c)
+				tree.Root.Children(func() {
+					if a.root != nil {
+						var node func(*treeItem)
+						node = func(item *treeItem) {
+							var i ui.TreeItemParts
+							if item.children == nil {
+								i = tree.Item(nil)
 							} else {
-								a.games = slices.Insert(a.games, a.selected, game)
+								i = tree.Item(&item.open)
 							}
+							ui.Row(c).Gap(4).PaddingStart((14 + 4) * float32(i.Depth())).Children(func() {
+								marginStart := float32(14 + 4)
+								if item.children != nil {
+									marginStart = 0
+									arrow := ui.Icon(c, chevron)
+									if item.open {
+										arrow.Rotate(90)
+									}
+									if arrow.Clicked() {
+										item.open = !item.open
+									}
+								}
+								if ui.Checkbox(c, &item.checked, "").PaddingX(1).MarginStart(marginStart).Changed() {
+									walkNodes(item, func(i *treeItem) { i.checked = item.checked })
+									if item.checked {
+										for cur := item.parent; cur != nil; cur = cur.parent {
+											if slices.ContainsFunc(cur.children, func(i *treeItem) bool { return !i.checked }) {
+												break
+											} else {
+												cur.checked = true
+											}
+										}
+									} else {
+										for cur := item.parent; cur != nil; cur = cur.parent {
+											cur.checked = false
+										}
+									}
+
+									if a.root.checked {
+										a.games[a.selected].Paths = []string{"*"}
+									} else {
+										a.games[a.selected].Paths = nil
+										var walk func(*treeItem)
+										walk = func(i *treeItem) {
+											if i.checked {
+												var paths []string
+												for i.parent != nil {
+													paths = append(paths, i.name)
+													i = i.parent
+												}
+												slices.Reverse(paths)
+												a.games[a.selected].Paths = append(a.games[a.selected].Paths, filepath.Join(paths...))
+												return
+											}
+											for _, i := range i.children {
+												walk(i)
+											}
+										}
+										walk(a.root)
+									}
+									a.save(a.games)
+								}
+								ui.Text(c, item.name).SingleLine()
+							})
+							i.Group(func() {
+								for _, i := range item.children {
+									node(i)
+								}
+							})
 						}
+						node(a.root)
 					}
 				})
 			})
-			ui.Column(c).Grow(0.7).AlignSelf(ui.Stretch).Gap(6).Disabled(a.selected == -1).Children(func() {
-				ui.Form(c, func() {
-					ui.Field(c, "Name", func() {
-						ui.Row(c).Gap(6).Children(func() {
-							ui.TextInput(c, &a.name).Grow(1)
-							if ui.Button(c, "Save").Clicked() {
-								oldName := a.games[a.selected].Name
-								a.games[a.selected].Name = a.name
-								if !a.save(a.games) {
-									a.games[a.selected].Name = oldName
-								}
-							}
-						})
-					})
-					ui.Field(c, "Save Root", func() {
-						ui.Row(c).Gap(6).Children(func() {
-							ui.TextInput(c, &a.saveRoot).Grow(1).ReadOnly(true)
-							if ui.Button(c, "Choose").Clicked() {
-								paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-									Parent:    a.win,
-									Directory: true,
-								})
-								if err != nil {
-									mygo.Dialog.Error("", err.Error())
-								} else if len(paths) > 0 {
-									a.games[a.selected].SaveRoot = paths[0]
-									if a.save(a.games) {
-										a.saveRoot = paths[0]
-										a.rebuildTree()
-									} else {
-										a.games[a.selected].SaveRoot = a.saveRoot
-									}
-								}
-							}
-							if ui.Button(c, "Open").Disabled(a.saveRoot == "").Clicked() {
-								exec.Command("explorer.exe", a.saveRoot).Run()
-							}
-						})
-					})
-					ui.Field(c, "Backup Path", func() {
-						ui.Row(c).Gap(6).Children(func() {
-							ui.TextInput(c, &a.backupPath).Grow(1).ReadOnly(true)
-							if ui.Button(c, "Choose").Clicked() {
-								paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-									Parent:    a.win,
-									Directory: true,
-								})
-								if err != nil {
-									mygo.Dialog.Error("", err.Error())
-								} else if len(paths) > 0 {
-									a.games[a.selected].BackupPath = paths[0]
-									if a.save(a.games) {
-										a.backupPath = paths[0]
-									} else {
-										a.games[a.selected].BackupPath = a.backupPath
-									}
-								}
-							}
-							if ui.Button(c, "Open").Disabled(a.backupPath == "").Clicked() {
-								name := a.games[a.selected].Name
-								backup := filepath.Join(a.backupPath, r.Replace(name)+".zip")
-								_, err := os.Stat(backup)
-								if err == nil {
-									exec.Command("explorer.exe", "/select,", backup).Run()
-								} else if errors.Is(err, os.ErrNotExist) {
-									exec.Command("explorer.exe", a.backupPath).Run()
-								} else {
-									mygo.Dialog.Error("", err.Error())
-								}
-							}
-						})
-					})
-				}).Gap(6)
-
-				ui.ScrollBoth(c).Padding(4).Border(1, t.Border).Radius(8).Grow(1).Children(func() {
-					tree := ui.TreeBase(c)
-					tree.Root.Children(func() {
-						if a.root != nil {
-							var node func(*treeItem)
-							node = func(item *treeItem) {
-								var i ui.TreeItemParts
-								if item.children == nil {
-									i = tree.Item(nil)
-								} else {
-									i = tree.Item(&item.open)
-								}
-								ui.Row(c).Gap(4).PaddingStart((14 + 4) * float32(i.Depth())).Children(func() {
-									marginStart := float32(14 + 4)
-									if item.children != nil {
-										marginStart = 0
-										arrow := ui.Icon(c, chevron)
-										if item.open {
-											arrow.Rotate(90)
-										}
-										if arrow.Clicked() {
-											item.open = !item.open
-										}
-									}
-									if ui.Checkbox(c, &item.checked, "").PaddingX(1).MarginStart(marginStart).Changed() {
-										walkNodes(item, func(i *treeItem) { i.checked = item.checked })
-										if item.checked {
-											for cur := item.parent; cur != nil; cur = cur.parent {
-												if slices.ContainsFunc(cur.children, func(i *treeItem) bool { return !i.checked }) {
-													break
-												} else {
-													cur.checked = true
-												}
-											}
-										} else {
-											for cur := item.parent; cur != nil; cur = cur.parent {
-												cur.checked = false
-											}
-										}
-
-										if a.root.checked {
-											a.games[a.selected].Paths = []string{"*"}
-										} else {
-											a.games[a.selected].Paths = nil
-											var walk func(*treeItem)
-											walk = func(i *treeItem) {
-												if i.checked {
-													var paths []string
-													for i.parent != nil {
-														paths = append(paths, i.name)
-														i = i.parent
-													}
-													slices.Reverse(paths)
-													a.games[a.selected].Paths = append(a.games[a.selected].Paths, filepath.Join(paths...))
-													return
-												}
-												for _, i := range i.children {
-													walk(i)
-												}
-											}
-											walk(a.root)
-										}
-										a.save(a.games)
-									}
-									ui.Text(c, item.name).SingleLine()
-								})
-								i.Group(func() {
-									for _, i := range item.children {
-										node(i)
-									}
-								})
-							}
-							node(a.root)
-						}
-					})
-				})
-				if ui.Button(c, "Back up").Disabled(a.saveRoot == "" || a.backupPath == "").Clicked() {
-					a.backUp()
-				}
-			})
+			if ui.Button(c, "Back up").Disabled(a.saveRoot == "" || a.backupPath == "").Clicked() {
+				a.backUp()
+			}
 		})
 	})
+}
+
+func filePicker(c *ui.Context, value *string) (ui.Element, ui.Element) {
+	t := c.Theme()
+
+	input := ui.TextInput(c, value).Grow(1).ReadOnly(true)
+	pick := ui.Button(c, "").AlignSelf(ui.Stretch).Radius(0).BorderWidth(1, 0).Children(func() {
+		ui.Icon(c, folder)
+	})
+	open := ui.Button(c, "").AlignSelf(ui.Stretch).Disabled(*value == "").DimDisabled(false).Children(func() {
+		ui.Icon(c, external)
+	})
+	if *value == "" {
+		open.Background(t.Surface.Alpha(0.5)).TextColor(t.Text.Alpha(0.5))
+	}
+
+	if c.Direction() == ui.LeftToRight {
+		input.Radius(t.Radius, 0, 0, t.Radius)
+		open.Radius(0, t.Radius, t.Radius, 0)
+	} else {
+		input.Radius(0, t.Radius, t.Radius, 0)
+		open.Radius(t.Radius, 0, 0, t.Radius)
+	}
+	return pick, open
 }
