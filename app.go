@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -368,7 +367,9 @@ func (a *app) view(c *ui.Context) {
 					}
 				}
 				if open.Clicked() {
-					exec.Command("explorer.exe", a.saveRoot).Run()
+					if err := mygo.Shell.OpenPath(a.saveRoot); err != nil {
+						a.err, a.message = true, err.Error()
+					}
 				}
 
 				ui.Text(c, "to").MarginX(6)
@@ -394,9 +395,11 @@ func (a *app) view(c *ui.Context) {
 					backup := filepath.Join(a.backupPath, r.Replace(name)+".zip")
 					_, err := os.Stat(backup)
 					if err == nil {
-						exec.Command("explorer.exe", "/select,", backup).Run()
+						mygo.Shell.ShowItemInFolder(backup)
 					} else if errors.Is(err, os.ErrNotExist) {
-						exec.Command("explorer.exe", a.backupPath).Run()
+						if err := mygo.Shell.OpenPath(a.backupPath); err != nil {
+							a.err, a.message = true, err.Error()
+						}
 					} else {
 						a.err, a.message = true, err.Error()
 					}
